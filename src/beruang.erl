@@ -29,10 +29,11 @@ get_ets(TabName, Options) ->
 
 -spec get_ets(pid(), atom(), list()) -> {ok, ets:tab()}.
 get_ets(Pid, TabName, Options) ->
-    GiftData = make_ref()
+    GiftData = make_ref(),
     Reply = gen_server:call(?SERVER, {get_ets, Pid, TabName, Options, GiftData}),
+    {ok, Tab} = Reply,
     receive
-        {'ETS-TRANSFER', _Tab, _FromPid, GiftData} ->
+        {'ETS-TRANSFER', Tab, _FromPid, GiftData} ->
             Reply
     end.
 
