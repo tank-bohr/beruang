@@ -29,15 +29,20 @@ get_ets(TabName, Options) ->
 
 -spec get_ets(pid(), atom(), list()) -> {ok, ets:tab()}.
 get_ets(Pid, TabName, Options) ->
-    gen_server:call(?SERVER, {get_ets, Pid, TabName, Options}).
+    GiftData = make_ref()
+    Reply = gen_server:call(?SERVER, {get_ets, Pid, TabName, Options, GiftData}),
+    receive
+        {'ETS-TRANSFER', _Tab, _FromPid, GiftData} ->
+            Reply
+    end.
 
 %% gen_server callbacks
 
 init([]) ->
     {ok, ets:new(?MODULE, [])}.
 
-handle_call({get_ets, Pid, TabName, Options}, _From, State) ->
-    Result = get_ets_internal(Pid, TabName, Options, State),
+handle_call({get_ets, Pid, TabName, Options, GiftData}, _From, State) ->
+    Result = get_ets_internal(Pid, TabName, Options, GiftData, State),
     {reply, Result, State};
 handle_call(_Request, _From, State) ->
     {reply, {error, unknown_call}, State}.
@@ -59,10 +64,10 @@ code_change(_OldVsn, State, _Extra) ->
 
 %% internal functions
 
-get_ets_internal(OwnerPid, EtsName, EtsOptions, State) ->
+get_ets_internal(OwnerPid, EtsName, EtsOptions, GiftData, State) ->
     try get_or_create_ets(EtsName, EtsOptions, State) of
         Tab ->
-            true = ets:give_away(Tab, OwnerPid, undefined),
+            true = ets:give_away(Tab, OwnerPid, GiftData),
             {ok, Tab}
     catch
         _:Error ->
